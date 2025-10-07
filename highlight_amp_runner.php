@@ -20,8 +20,8 @@ require_once __DIR__ . '/text/karaktercsere.php';
 $szoveg = file_get_contents($eleresi_ut);
 $szoveg = karaktercsere_folio($szoveg);
 
-// --- Kiemelés ---
-$kiemelt = highlight_words_amp_safe($szoveg);
+// --- Kiemelés (cache-el együtt) ---
+$kiemelt = highlight_words_amp_safe($szoveg, $fajlnev);
 ?>
 <!doctype html>
 <html ⚡ lang="hu">

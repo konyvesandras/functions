@@ -1,0 +1,14 @@
+<pre>
+<?php
+function get_unique_words(string $string): array {
+    // Szavak kiszedése, kisbetűsítés, nem-alfanumerikus karakterek mentén
+    $words = preg_split('/\W+/u', mb_strtolower($string), -1, PREG_SPLIT_NO_EMPTY);
+
+    // Egyedi szavak visszaadása
+    return array_values(array_unique($words));
+}
+
+
+$string = "Ez egy próba szöveg, ez csak próba.";
+print_r(get_unique_words($string));
+// Kimenet: Array ( [0] => ez [1] => egy [2] => próba [3] => szöveg [4] => ez [5] => csak [6] => próba )

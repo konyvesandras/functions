@@ -8,7 +8,15 @@
  * Egyedi szavak kigyűjtése (kisbetűsítve).
  */
 function get_unique_words(string $string): array {
-    $words = preg_split('/\W+/u', mb_strtolower($string), -1, PREG_SPLIT_NO_EMPTY);
+
+// Régi (memóriát zabálhat):
+// $words = preg_split('/\W+/u', mb_strtolower($string), -1, PREG_SPLIT_NO_EMPTY);
+
+// Új, biztonságosabb:
+$cleaned = preg_replace('/[[:punct:]]+/u', ' ', $string);
+$words   = preg_split('/\s+/u', mb_strtolower($cleaned), -1, PREG_SPLIT_NO_EMPTY);
+
+//    $words = preg_split('/\W+/u', mb_strtolower($string), -1, PREG_SPLIT_NO_EMPTY);
     return array_values(array_unique($words));
 }
 

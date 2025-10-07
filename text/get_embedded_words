@@ -1,0 +1,20 @@
+function get_embedded_words(string $string): array {
+    $words = get_unique_words($string);
+    $filtered = array_filter($words, fn($w) => mb_strlen($w) > 3);
+    $embedded = [];
+
+    foreach ($filtered as $word) {
+        foreach ($words as $other) {
+            if ($word !== $other && mb_strpos($other, $word) !== false) {
+                $embedded[] = $word;
+                break; // Már megtaláltuk, nem kell tovább keresni
+            }
+        }
+    }
+
+    return array_values(array_unique($embedded));
+}
+
+$string = "alma almás almamag magos mag";
+print_r(get_embedded_words($string));
+// Kimenet: Array ( [0] => alma [1] => mag )

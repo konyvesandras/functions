@@ -38,7 +38,10 @@ function get_repeated_words(string $string): array {
 }
 
 function get_word_pairs(string $string): array {
-    $words = array_filter(tokenize_words($string), fn($w) => mb_strlen($w) > 2);
+    static $pairs = null;
+    if ($pairs !== null) return $pairs;
+
+    $words = array_filter(get_unique_words($string), fn($w) => mb_strlen($w) > 2);
     usort($words, fn($a, $b) => mb_strlen($a) <=> mb_strlen($b));
 
     $pairs = [];
@@ -48,13 +51,20 @@ function get_word_pairs(string $string): array {
         $inner = $words[$i];
         for ($j = $i+1; $j < $count; $j++) {
             $outer = $words[$j];
+            // csak akkor vizsgáljuk, ha az outer hosszabb
+            if (mb_strlen($outer) <= mb_strlen($inner)) continue;
+
             if (mb_strpos($outer, $inner) !== false) {
                 $pairs[] = [$inner, $outer];
+                if (count($pairs) > 20000) { // biztonsági limit
+                    return $pairs;
+                }
             }
         }
     }
     return $pairs;
 }
+
 
 function highlight_words_amp_safe(string $string, string $txtFile): string {
     // Cache betöltés

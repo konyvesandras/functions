@@ -16,6 +16,7 @@ function get_unique_words(string $string): array {
 $cleaned = preg_replace('/[[:punct:]]+/u', ' ', $string);
 $words   = preg_split('/\s+/u', mb_strtolower($cleaned), -1, PREG_SPLIT_NO_EMPTY);
 
+
 //    $words = preg_split('/\W+/u', mb_strtolower($string), -1, PREG_SPLIT_NO_EMPTY);
     return array_values(array_unique($words));
 }
@@ -24,7 +25,9 @@ $words   = preg_split('/\s+/u', mb_strtolower($cleaned), -1, PREG_SPLIT_NO_EMPTY
  * Ismétlődő szavak kigyűjtése.
  */
 function get_repeated_words(string $string): array {
-    $words = preg_split('/\W+/u', mb_strtolower($string), -1, PREG_SPLIT_NO_EMPTY);
+	$cleaned = preg_replace('/[[:punct:]]+/u', ' ', $string);
+	$words   = preg_split('/\s+/u', mb_strtolower($cleaned), -1, PREG_SPLIT_NO_EMPTY);
+
     $counts = array_count_values($words);
     return array_keys(array_filter($counts, fn($c) => $c > 1));
 }

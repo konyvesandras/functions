@@ -1,5 +1,7 @@
 <?php
+// highlight_amp_runner.php
 
+// --- Fájlnév ellenőrzés ---
 $fajlnev = $_GET['fajl'] ?? 'elemzes.txt';
 if (!preg_match('/^[a-zA-Z0-9_\-]+\.txt$/', $fajlnev)) {
     die("❌ Érvénytelen fájlnév.");
@@ -10,20 +12,16 @@ if (!file_exists($eleresi_ut)) {
     die("❌ A fájl nem található: $fajlnev");
 }
 
-// Betöltjük a karaktercserélőt és a kiemelő modult
+// --- Függvények betöltése ---
+require_once __DIR__ . '/inc/functions.php';
 require_once __DIR__ . '/text/karaktercsere.php';
-require_once __DIR__ . '/text/highlight_words_amp.php';
 
-// Betöltjük a nyers szöveget
+// --- Szöveg betöltése és előfeldolgozás ---
 $szoveg = file_get_contents($eleresi_ut);
-
-// Karaktercsere: olvashatóvá alakítás
 $szoveg = karaktercsere_folio($szoveg);
 
-// Kiemelés: ismétlődő + beágyazott szavak
-$kiemelt = highlight_words_amp($szoveg);
-
-// AMP-kompatibilis HTML sablon
+// --- Kiemelés ---
+$kiemelt = highlight_words_amp_safe($szoveg);
 ?>
 <!doctype html>
 <html ⚡ lang="hu">

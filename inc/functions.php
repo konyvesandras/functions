@@ -1,6 +1,9 @@
 <?php
-// inc/functions.php – optimalizált, cache-elhető
+// inc/functions.php – optimalizált, cache-es verzió
 
+/**
+ * Cache betöltése
+ */
 function load_cache(string $txtFile): ?array {
     $cacheFile = __DIR__ . '/../cache/' . basename($txtFile, '.txt') . '.json';
     if (!file_exists($cacheFile)) return null;
@@ -8,40 +11,63 @@ function load_cache(string $txtFile): ?array {
     $data = json_decode(file_get_contents($cacheFile), true);
     if (!$data) return null;
 
-    // ha a forrás újabb, mint a cache → érvénytelen
     $srcFile = __DIR__ . '/../txt/' . $txtFile;
-    if (filemtime($srcFile) > $data['mtime']) return null;
+    if (!file_exists($srcFile)) return null;
+
+    // ha a forrás újabb, mint a cache → érvénytelen
+    if (filemtime($srcFile) > ($data['mtime'] ?? 0)) return null;
 
     return $data;
 }
 
+/**
+ * Cache mentése
+ */
 function save_cache(string $txtFile, array $data): void {
     $cacheFile = __DIR__ . '/../cache/' . basename($txtFile, '.txt') . '.json';
-    $data['mtime'] = filemtime(__DIR__ . '/../txt/' . $txtFile);
+    $srcFile   = __DIR__ . '/../txt/' . $txtFile;
+    $data['mtime'] = filemtime($srcFile);
+    if (!is_dir(dirname($cacheFile))) {
+        mkdir(dirname($cacheFile), 0777, true);
+    }
     file_put_contents($cacheFile, json_encode($data, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
 }
 
+/**
+ * Tokenizálás – egyszeri feldolgozás
+ */
 function tokenize_words(string $string): array {
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
     $cleaned = preg_replace('/[[:punct:]]+/u', ' ', $string);
     $words   = preg_split('/\s+/u', mb_strtolower($cleaned), -1, PREG_SPLIT_NO_EMPTY);
-    return array_values(array_unique($words));
+
+    $cache = array_values(array_unique($words));
+    return $cache;
 }
 
+/**
+ * Egyedi szavak
+ */
 function get_unique_words(string $string): array {
     return tokenize_words($string);
 }
 
+/**
+ * Ismétlődő szavak
+ */
 function get_repeated_words(string $string): array {
     $words  = tokenize_words($string);
     $counts = array_count_values($words);
     return array_keys(array_filter($counts, fn($c) => $c > 1));
 }
 
+/**
+ * Beágyazott ↔ befogadó párok
+ */
 function get_word_pairs(string $string): array {
-    static $pairs = null;
-    if ($pairs !== null) return $pairs;
-
-    $words = array_filter(get_unique_words($string), fn($w) => mb_strlen($w) > 2);
+    $words = array_filter(tokenize_words($string), fn($w) => mb_strlen($w) > 2);
     usort($words, fn($a, $b) => mb_strlen($a) <=> mb_strlen($b));
 
     $pairs = [];
@@ -51,7 +77,6 @@ function get_word_pairs(string $string): array {
         $inner = $words[$i];
         for ($j = $i+1; $j < $count; $j++) {
             $outer = $words[$j];
-            // csak akkor vizsgáljuk, ha az outer hosszabb
             if (mb_strlen($outer) <= mb_strlen($inner)) continue;
 
             if (mb_strpos($outer, $inner) !== false) {
@@ -65,7 +90,9 @@ function get_word_pairs(string $string): array {
     return $pairs;
 }
 
-
+/**
+ * Biztonságos, AMP-kompatibilis kiemelés
+ */
 function highlight_words_amp_safe(string $string, string $txtFile): string {
     // Cache betöltés
     $cache = load_cache($txtFile);

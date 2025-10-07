@@ -1,48 +1,54 @@
 <?php
-/**
- * inc/functions.php
- * Egységes, Unicode-biztos szövegfeldolgozó és kiemelő függvények
- */
+// inc/functions.php – optimalizált, cache-elhető
 
-/**
- * Egyedi szavak kigyűjtése (kisbetűsítve).
- */
-function get_unique_words(string $string): array {
+function load_cache(string $txtFile): ?array {
+    $cacheFile = __DIR__ . '/../cache/' . basename($txtFile, '.txt') . '.json';
+    if (!file_exists($cacheFile)) return null;
 
-// Régi (memóriát zabálhat):
-// $words = preg_split('/\W+/u', mb_strtolower($string), -1, PREG_SPLIT_NO_EMPTY);
+    $data = json_decode(file_get_contents($cacheFile), true);
+    if (!$data) return null;
 
-// Új, biztonságosabb:
-$cleaned = preg_replace('/[[:punct:]]+/u', ' ', $string);
-$words   = preg_split('/\s+/u', mb_strtolower($cleaned), -1, PREG_SPLIT_NO_EMPTY);
+    // ha a forrás újabb, mint a cache → érvénytelen
+    $srcFile = __DIR__ . '/../txt/' . $txtFile;
+    if (filemtime($srcFile) > $data['mtime']) return null;
 
+    return $data;
+}
 
-//    $words = preg_split('/\W+/u', mb_strtolower($string), -1, PREG_SPLIT_NO_EMPTY);
+function save_cache(string $txtFile, array $data): void {
+    $cacheFile = __DIR__ . '/../cache/' . basename($txtFile, '.txt') . '.json';
+    $data['mtime'] = filemtime(__DIR__ . '/../txt/' . $txtFile);
+    file_put_contents($cacheFile, json_encode($data, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
+}
+
+function tokenize_words(string $string): array {
+    $cleaned = preg_replace('/[[:punct:]]+/u', ' ', $string);
+    $words   = preg_split('/\s+/u', mb_strtolower($cleaned), -1, PREG_SPLIT_NO_EMPTY);
     return array_values(array_unique($words));
 }
 
-/**
- * Ismétlődő szavak kigyűjtése.
- */
-function get_repeated_words(string $string): array {
-	$cleaned = preg_replace('/[[:punct:]]+/u', ' ', $string);
-	$words   = preg_split('/\s+/u', mb_strtolower($cleaned), -1, PREG_SPLIT_NO_EMPTY);
+function get_unique_words(string $string): array {
+    return tokenize_words($string);
+}
 
+function get_repeated_words(string $string): array {
+    $words  = tokenize_words($string);
     $counts = array_count_values($words);
     return array_keys(array_filter($counts, fn($c) => $c > 1));
 }
 
-/**
- * Beágyazott ↔ befogadó párok kigyűjtése.
- */
 function get_word_pairs(string $string): array {
-    $words = get_unique_words($string);
-    $filtered = array_filter($words, fn($w) => mb_strlen($w) > 3);
-    $pairs = [];
+    $words = array_filter(tokenize_words($string), fn($w) => mb_strlen($w) > 2);
+    usort($words, fn($a, $b) => mb_strlen($a) <=> mb_strlen($b));
 
-    foreach ($filtered as $inner) {
-        foreach ($words as $outer) {
-            if ($inner !== $outer && mb_strpos($outer, $inner) !== false) {
+    $pairs = [];
+    $count = count($words);
+
+    for ($i = 0; $i < $count; $i++) {
+        $inner = $words[$i];
+        for ($j = $i+1; $j < $count; $j++) {
+            $outer = $words[$j];
+            if (mb_strpos($outer, $inner) !== false) {
                 $pairs[] = [$inner, $outer];
             }
         }
@@ -50,28 +56,33 @@ function get_word_pairs(string $string): array {
     return $pairs;
 }
 
-/**
- * Biztonságos, AMP-kompatibilis kiemelés:
- * - ismétlődő szavak teljes kiemelése
- * - beágyazott szavak részleges kiemelése
- */
-function highlight_words_amp_safe(string $string): string {
-    $repeated = get_repeated_words($string);
-    $pairs    = get_word_pairs($string);
+function highlight_words_amp_safe(string $string, string $txtFile): string {
+    // Cache betöltés
+    $cache = load_cache($txtFile);
 
-    // Szavak + whitespace megtartása
+    if ($cache) {
+        $repeated = $cache['repeated'];
+        $pairs    = $cache['pairs'];
+    } else {
+        $repeated = get_repeated_words($string);
+        $pairs    = get_word_pairs($string);
+        save_cache($txtFile, [
+            'unique'   => get_unique_words($string),
+            'repeated' => $repeated,
+            'pairs'    => $pairs
+        ]);
+    }
+
     $tokens = preg_split('/(\s+)/u', $string, -1, PREG_SPLIT_DELIM_CAPTURE);
 
     foreach ($tokens as &$token) {
-        $clean = mb_strtolower(preg_replace('/\W+/u', '', $token));
+        $clean = mb_strtolower(preg_replace('/[[:punct:]]+/u', '', $token));
 
-        // Ismétlődő szavak kiemelése
         if ($clean && in_array($clean, $repeated, true)) {
             $token = '<span class="repeated">'.$token.'</span>';
             continue;
         }
 
-        // Beágyazott szavak részleges kiemelése
         foreach ($pairs as [$inner, $outer]) {
             if (mb_strtolower($token) === $outer) {
                 $token = preg_replace(

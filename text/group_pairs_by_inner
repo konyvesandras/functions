@@ -1,0 +1,21 @@
+<pre>
+<?php
+function group_pairs_by_inner(string $string): array {
+    $pairs = get_word_pairs($string);
+    $grouped = [];
+
+    foreach ($pairs as [$inner, $outer]) {
+        $grouped[$inner][] = $outer;
+    }
+
+    return $grouped;
+}
+
+$string = "alma almás almamag magos mag";
+print_r(group_pairs_by_inner($string));
+/* Kimenet:
+Array (
+  [alma] => Array ( [0] => almás [1] => almamag )
+  [mag]  => Array ( [0] => almamag [1] => magos )
+)
+*/
